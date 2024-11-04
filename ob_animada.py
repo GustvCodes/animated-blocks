@@ -1,14 +1,26 @@
-# Para usar este programa, você precisa instalar as bibliotecas Pillow e imageio.
-# Use os comandos: pip install Pillow imageio
-
+import subprocess
+import sys
 from PIL import Image
 import imageio
 import os
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 import webbrowser
-import subprocess
 
+# Função para instalar pacotes
+def install(package):
+    subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+
+# Função para instalar pacotes necessários
+def install_packages():
+    required_packages = ["Pillow", "imageio", "moviepy"]
+    for package in required_packages:
+        try:
+            __import__(package)
+        except ImportError:
+            install(package)
+
+# Funções principais do programa
 def gif_to_frames(gif_path):
     frames = []
     with imageio.get_reader(gif_path) as reader:
@@ -16,9 +28,16 @@ def gif_to_frames(gif_path):
             frames.append(frame)
     return frames
 
+def video_to_gif(video_path):
+    from moviepy.editor import VideoFileClip
+    gif_path = video_path.rsplit('.', 1)[0] + '.gif'
+    clip = VideoFileClip(video_path)
+    clip.write_gif(gif_path)
+    return gif_path
+
 def resize_frame(frame, size):
     image = Image.fromarray(frame)
-    return image.resize(size, Image.ANTIALIAS)
+    return image.resize(size, Image.LANCZOS)
 
 def get_next_directory_name(base_name):
     i = 1
@@ -68,50 +87,104 @@ def convert_gif():
     except Exception as e:
         messagebox.showerror("Erro", f'Ocorreu um erro: {e}')
 
-def open_twitch():
-    webbrowser.open("https://www.twitch.tv/gustvst")
+def convert_video():
+    video_path = filedialog.askopenfilename(filetypes=[("Video files", "*.mp4;*.avi;*.mov"), ("All files", "*.*")])
+    if not video_path:
+        return
 
-def open_youtube():
-    webbrowser.open("https://www.youtube.com/@Gustvst")
+    gif_path = video_to_gif(video_path)
+    convert_gif_from_video(gif_path)
 
-def open_discord():
+def convert_gif_from_video(gif_path):
+    selected_resolution = resolution_var.get()
+    resolutions = {
+        '16x16': (16, 16),
+        '32x32': (32, 32),
+        '64x64': (64, 64),
+        '128x128': (128, 128),
+        '256x256': (256, 256)
+    }
+    resolution = resolutions[selected_resolution]
+    output_folder = get_next_directory_name('OBSIDIAN')
+
     try:
-        subprocess.run(["C:\\Users\\<SeuNomeDeUsuario>\\AppData\\Local\\Discord\\app-1.0.9005\\Discord.exe"])  # Atualize o caminho conforme necessário
-    except Exception:
-        webbrowser.open("https://discord.gg/SuTKhjyu2F")
+        frames = gif_to_frames(gif_path)
+        save_frames_as_stacked_png(frames, output_folder, resolution)
+        messagebox.showinfo("Sucesso", f'Frames salvos como obsidian.png e obsidian.png.mcmeta na pasta {output_folder}!')
+    except Exception as e:
+        messagebox.showerror("Erro", f'Ocorreu um erro: {e}')
 
-root = tk.Tk()
-root.title("Transformador de GIFs em Blocos Animados")
-root.geometry("600x700")
-root.configure(bg="#2C2C2C")
-root.resizable(False, False)
+# Criação da janela principal
+def initialize_app():
+    global root, resolution_var
+    root = tk.Tk()
+    root.title("GIF to Animated Block Converter")
+    root.geometry("500x600")
+    root.configure(bg="#1E1E1E")
+    root.resizable(False, False)
 
-style = ttk.Style()
-style.configure("TLabel", background="#2C2C2C", foreground="#FFFFFF", font=("Arial", 12))
-style.configure("TButton", font=("Arial", 12), padding=5)
+    # Configuração de estilo
+    style = ttk.Style()
+    style.configure("TLabel", background="#1E1E1E", foreground="#FFFFFF", font=("Arial", 12))
+    style.configure("TButton", font=("Arial", 12), padding=10)
+    style.theme_use('clam')
 
-title_label = tk.Label(root, text="Transformador de GIFs em Blocos Animados", bg="#2C2C2C", fg="#4CAF50", font=("Arial", 20, "bold"))
-title_label.pack(pady=20)
+    # Cabeçalho
+    header = tk.Frame(root, bg="#4A90E2", height=60)
+    header.pack(fill="x")
 
-info_label = tk.Label(root, text="Desenvolvido por Gustavo (gustvst)", wraplength=300, bg="#2C2C2C", fg="#AAAAAA", font=("Arial", 12))
-info_label.pack(pady=5)
+    title_label = tk.Label(header, text="OBSIDIAN ANIMADA", bg="#4A90E2", fg="#FFFFFF", font=("Helvetica", 16, "bold"))
+    title_label.pack(pady=10)
 
-resolution_label = tk.Label(root, text="Escolha a resolução:", bg="#2C2C2C", fg="#FFFFFF", font=("Arial", 14))
-resolution_label.pack(pady=15)
+    # Corpo principal
+    main_frame = tk.Frame(root, bg="#1E1E1E")
+    main_frame.pack(pady=20)
 
-resolution_var = tk.StringVar(value='64x64')
-resolution_options = ['16x16', '32x32', '64x64', '128x128', '256x256']
-resolution_combobox = ttk.Combobox(root, textvariable=resolution_var, values=resolution_options, state='readonly', width=10)
-resolution_combobox.pack(pady=10)
+    # Descrição
+    description = tk.Label(main_frame, text="Transforme GIFs em blocos animados para Minecraft", bg="#1E1E1E", fg="#FFFFFF", font=("Arial", 10), wraplength=400)
+    description.pack(pady=10)
 
-convert_button = tk.Button(root, text="Converter GIF", command=convert_gif, bg="#4CAF50", fg="#FFFFFF", width=20)
-convert_button.pack(pady=30)
+    # Seletor de resolução
+    resolution_label = tk.Label(main_frame, text="Escolha a resolução:", bg="#1E1E1E", fg="#FFFFFF", font=("Arial", 12))
+    resolution_label.pack(pady=5)
 
-links_frame = tk.Frame(root, bg="#2C2C2C")
-links_frame.pack(pady=20)
+    resolution_var = tk.StringVar(value='64x64')
+    resolution_combobox = ttk.Combobox(main_frame, textvariable=resolution_var, values=['16x16', '32x32', '64x64', '128x128', '256x256'], state='readonly', width=12)
+    resolution_combobox.pack(pady=5)
 
-tk.Button(links_frame, text="Canal na Twitch", command=open_twitch, bg="#6441A4", fg="#FFFFFF", width=20).grid(row=0, column=0, padx=10, pady=5)
-tk.Button(links_frame, text="Canal no YouTube", command=open_youtube, bg="#FF0000", fg="#FFFFFF", width=20).grid(row=0, column=1, padx=10, pady=5)
-tk.Button(links_frame, text="Servidor no Discord", command=open_discord, bg="#7289DA", fg="#FFFFFF", width=20).grid(row=1, column=0, columnspan=2, pady=5)
+    # Botão para converter GIF
+    convert_gif_button = tk.Button(main_frame, text="Converter GIF", command=convert_gif, bg="#76c7c0", fg="#FFFFFF", font=("Arial", 12), width=20)
+    convert_gif_button.pack(pady=10)
 
+    # Botão para converter vídeo em GIF
+    convert_video_button = tk.Button(main_frame, text="Converter Vídeo para GIF", command=convert_video, bg="#76c7c0", fg="#FFFFFF", font=("Arial", 12), width=20)
+    convert_video_button.pack(pady=10)
+
+    # Rodapé com redes sociais
+    footer = tk.Frame(root, bg="#4A90E2", height=100)
+    footer.pack(fill="x", side="bottom")
+
+    footer_label = tk.Label(footer, text="Links:", bg="#4A90E2", fg="#FFFFFF", font=("Arial", 12))
+    footer_label.pack(pady=5)
+
+    # Links centralizados
+    links_frame = tk.Frame(footer, bg="#4A90E2")
+    links_frame.pack(pady=5)
+
+    github_link = "https://github.com/GustvCodes"
+    twitch_link = "https://www.twitch.tv/gustvst"
+    discord_link = "https://discord.gg/SuTKhjyu2F"
+
+    twitch_button = tk.Button(links_frame, text="Twitch", command=lambda: webbrowser.open(twitch_link), bg="#8A3FFC", fg="#FFFFFF", font=("Arial", 10), width=10)
+    twitch_button.pack(side="left", padx=5)
+
+    github_button = tk.Button(links_frame, text="GitHub", command=lambda: webbrowser.open(github_link), bg="#FF0000", fg="#FFFFFF", font=("Arial", 10), width=10)
+    github_button.pack(side="left", padx=5)
+
+    discord_button = tk.Button(links_frame, text="Discord", command=lambda: webbrowser.open(discord_link), bg="#3C87E0", fg="#FFFFFF", font=("Arial", 10), width=10)
+    discord_button.pack(side="left", padx=5)
+
+# Inicializa o aplicativo
+install_packages()  # Instala pacotes necessários
+initialize_app()     # Inicia a interface do usuário
 root.mainloop()
